@@ -16,6 +16,7 @@ public class Transaction {
     private Payment payment;
 
     private String type;
+    private String accountNumber;
     private LocalDateTime transactionDate;
     private Double amount;
 

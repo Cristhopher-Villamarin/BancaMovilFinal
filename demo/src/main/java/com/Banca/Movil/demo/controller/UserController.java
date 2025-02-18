@@ -14,13 +14,12 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody User user) {
+    @PostMapping("/registerOrLogin")
+    public ResponseEntity<?> registerOrLoginUser(@RequestBody User user) {
         try {
-            return ResponseEntity.ok(userService.registerUser(user));
+            return ResponseEntity.ok(userService.registerOrLoginUser(user));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al registrar usuario: " + e.getMessage());
         }
     }
-
 }

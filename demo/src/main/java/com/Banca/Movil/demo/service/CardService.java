@@ -28,6 +28,8 @@ public class CardService {
         User user = userRepository.findById(card.getUser().getId())
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
         card.setUser(user);
+        card.setId(null);
+        card.setCardNumber(null);
         return cardRepository.save(card);
     }
 

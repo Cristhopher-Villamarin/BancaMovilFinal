@@ -17,13 +17,19 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public User registerUser(User user) {
-        // Verificar que el email no esté registrado
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
-            throw new RuntimeException("El email ya está registrado");
+    public User registerOrLoginUser(User user) {
+        Optional<User> userRegister = userRepository.findByEmail(user.getEmail());
+
+        if (userRegister.isPresent()) {
+            return  userRegister.get();
         }
 
-        // Guardar el usuario sin encriptar la contraseña
-        return userRepository.save(user);
+        User newUser = new User();
+
+        newUser.setEmail(user.getEmail());
+        newUser.setName(user.getName());
+        newUser.setSaldo(0.00);
+
+        return userRepository.save(newUser);
     }
 }

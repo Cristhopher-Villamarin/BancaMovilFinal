@@ -1,3 +1,4 @@
+import 'package:banca_movil_final/Model/UserI.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -7,12 +8,24 @@ import 'pantalla_pagos.dart';
 import 'pantalla_tarjetas.dart';
 import 'pantalla_historial.dart';
 
-class PantallaInicio extends StatelessWidget {
+class PantallaInicio extends StatefulWidget {
   final User user;
-  final double saldoDisponible = 1250.75; // Saldo ficticio
-  final String numeroCuenta = "1234 5678 9012 3456"; // Número ficticio
+  final UserI userI;
 
-  const PantallaInicio({Key? key, required this.user}) : super(key: key);
+  const PantallaInicio({Key? key, required this.user, required this.userI})
+      : super(key: key);
+
+  @override
+  _PantallaInicioState createState() => _PantallaInicioState();
+}
+
+class _PantallaInicioState extends State<PantallaInicio> {
+
+  @override
+  void initState() {
+    super.initState();
+
+  }
 
   Future<void> _signOut(BuildContext context) async {
     await AuthService().signOut();
@@ -46,7 +59,7 @@ class PantallaInicio extends StatelessWidget {
             Column(
               children: [
                 Text(
-                  "Bienvenido/a, ${user.displayName ?? "Usuario"}!",
+                  "Bienvenido/a, ${widget.user.displayName ?? "Usuario"}!",
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 SizedBox(height: 5),
@@ -85,7 +98,7 @@ class PantallaInicio extends StatelessWidget {
                           ),
                           SizedBox(height: 5),
                           Text(
-                            numeroCuenta,
+                            widget.userI.numeroCuenta ?? "",
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -99,7 +112,7 @@ class PantallaInicio extends StatelessWidget {
                           ),
                           SizedBox(height: 5),
                           Text(
-                            "\$${saldoDisponible.toStringAsFixed(2)}",
+                            "\$${(widget.userI.saldo ?? 0).toStringAsFixed(2)}",
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -148,7 +161,7 @@ class PantallaInicio extends StatelessWidget {
                     label: "Tarjetas",
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => PantallaTarjetas()),
+                      MaterialPageRoute(builder: (context) => PantallaTarjetas(userI: widget.userI,)),
                     ),
                   ),
                 ],
@@ -169,17 +182,17 @@ class PantallaInicio extends StatelessWidget {
           UserAccountsDrawerHeader(
             decoration: BoxDecoration(color: Colors.lightBlueAccent),
             accountName: Text(
-              user.displayName ?? "Usuario",
+              widget.user.displayName ?? "Usuario",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             accountEmail: Text(
-              user.email ?? "",
+              widget.user.email ?? "",
               style: TextStyle(fontSize: 14),
             ),
             currentAccountPicture: CircleAvatar(
               radius: 40,
-              backgroundImage: user.photoURL != null
-                  ? NetworkImage(user.photoURL!)
+              backgroundImage: widget.user.photoURL != null
+                  ? NetworkImage(widget.user.photoURL!)
                   : AssetImage('assets/default_avatar.png') as ImageProvider,
             ),
           ),

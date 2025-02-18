@@ -18,7 +18,7 @@ public class Payment {
     private User user;
 
     private Double amount;
-    private String cardNumber;
+    private String numeroCuentaDestino;
     private LocalDateTime paymentDate;
 
     // Getters y Setters (generados por Lombok @Data)

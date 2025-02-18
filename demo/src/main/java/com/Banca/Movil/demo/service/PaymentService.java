@@ -31,29 +31,48 @@ public class PaymentService {
 
     @Transactional
     public Payment processPayment(Payment payment) {
-        // Verificar que la tarjeta no esté congelada
-        Card card = cardRepository.findByCardNumber(payment.getCardNumber())
-                .orElseThrow(() -> new RuntimeException("Tarjeta no encontrada"));
-        if (card.isFrozen()) {
-            throw new RuntimeException("La tarjeta está congelada");
+        // 1. Verificar si la cuenta destino existe
+        User destinationUser = userRepository.findByNumeroCuenta(payment.getNumeroCuentaDestino())
+                .orElseThrow(() -> new RuntimeException("Cuenta destino no encontrada"));
+
+        // 2. Verificar saldo del usuario origen
+        User originUser = payment.getUser(); // Usuario origen
+        User originAccount = userRepository.findById(originUser.getId())
+                .orElseThrow(() -> new RuntimeException("Cuenta de origen no encontrada"));
+
+        if (originAccount.getSaldo() < payment.getAmount()) {
+            throw new RuntimeException("Saldo insuficiente en la cuenta origen");
         }
 
-        // Obtener el usuario y asignarlo al pago
-        User user = userRepository.findById(payment.getUser().getId())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        payment.setUser(user);
+        // 3. Realizar la transferencia (restar del saldo de origen y sumar al saldo de destino)
+        originAccount.setSaldo(originAccount.getSaldo() - payment.getAmount());
+        userRepository.save(originAccount);
 
+        User destinationAccount = userRepository.findById(destinationUser.getId())
+                .orElseThrow(() -> new RuntimeException("Cuenta destino no encontrada"));
+        destinationAccount.setSaldo(destinationAccount.getSaldo() + payment.getAmount());
+        userRepository.save(destinationAccount);
+
+        // 4. Guardar el pago en la base de datos
         payment.setPaymentDate(LocalDateTime.now());
-        Payment savedPayment = paymentRepository.save(payment);
+        payment.setId(null);
+        Payment paymentSaved = paymentRepository.save(payment);
 
+        // 5. Crear transacciones para la cuenta origen y cuenta destino
+        createTransaction(paymentSaved, originUser, "enviado", originAccount.getNumeroCuenta());
+        createTransaction(paymentSaved, destinationUser, "recibido", destinationAccount.getNumeroCuenta());
+
+        return paymentSaved;
+    }
+
+    private void createTransaction(Payment payment, User user, String type, String account) {
         Transaction transaction = new Transaction();
-        transaction.setPayment(savedPayment);
+        transaction.setPayment(payment);
+        transaction.setType(type);
+        transaction.setAccountNumber(account);
         transaction.setAmount(payment.getAmount());
-        transaction.setType("Pago");
         transaction.setTransactionDate(LocalDateTime.now());
-
         transactionRepository.save(transaction);
-        return savedPayment;
     }
 
     public List<Payment> getPaymentsByUser(Long userId) {
