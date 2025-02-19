@@ -9,6 +9,7 @@ import com.Banca.Movil.demo.repository.PaymentRepository;
 import com.Banca.Movil.demo.repository.TransactionRepository;
 import com.Banca.Movil.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,42 +36,39 @@ public class PaymentService {
         User destinationUser = userRepository.findByNumeroCuenta(payment.getNumeroCuentaDestino())
                 .orElseThrow(() -> new RuntimeException("Cuenta destino no encontrada"));
 
-        // 2. Verificar saldo del usuario origen
-        User originUser = payment.getUser(); // Usuario origen
-        User originAccount = userRepository.findById(originUser.getId())
+        User originAccount = userRepository.findById(payment.getUser().getId())
                 .orElseThrow(() -> new RuntimeException("Cuenta de origen no encontrada"));
 
-        if (originAccount.getSaldo() < payment.getAmount()) {
+        if(destinationUser.getNumeroCuenta().equals(originAccount.getNumeroCuenta())) {
+            throw new RuntimeException("No se puede transferir al número de cuenta propio");
+        }
+
+        // 2. Verificar saldo del usuario origen
+        List<Transaction> transactions = transactionRepository.findByAccountNumber(originAccount.getNumeroCuenta(), Sort.by(Sort.Order.desc("transactionDate")));
+        double saldo = transactions.stream().mapToDouble(Transaction::getAmount).sum();
+
+        if (saldo < payment.getAmount()) {
             throw new RuntimeException("Saldo insuficiente en la cuenta origen");
         }
 
-        // 3. Realizar la transferencia (restar del saldo de origen y sumar al saldo de destino)
-        originAccount.setSaldo(originAccount.getSaldo() - payment.getAmount());
-        userRepository.save(originAccount);
-
-        User destinationAccount = userRepository.findById(destinationUser.getId())
-                .orElseThrow(() -> new RuntimeException("Cuenta destino no encontrada"));
-        destinationAccount.setSaldo(destinationAccount.getSaldo() + payment.getAmount());
-        userRepository.save(destinationAccount);
-
-        // 4. Guardar el pago en la base de datos
+        // 3. Guardar el pago en la base de datos
         payment.setPaymentDate(LocalDateTime.now());
         payment.setId(null);
         Payment paymentSaved = paymentRepository.save(payment);
 
-        // 5. Crear transacciones para la cuenta origen y cuenta destino
-        createTransaction(paymentSaved, originUser, "enviado", originAccount.getNumeroCuenta());
-        createTransaction(paymentSaved, destinationUser, "recibido", destinationAccount.getNumeroCuenta());
+        // 4. Crear transacciones para la cuenta origen y cuenta destino
+        createTransaction(paymentSaved, originAccount.getNumeroCuenta(), -paymentSaved.getAmount());
+        createTransaction(paymentSaved, destinationUser.getNumeroCuenta(), paymentSaved.getAmount());
 
         return paymentSaved;
     }
 
-    private void createTransaction(Payment payment, User user, String type, String account) {
+    private void createTransaction(Payment payment, String account, double amount) {
         Transaction transaction = new Transaction();
         transaction.setPayment(payment);
-        transaction.setType(type);
+        transaction.setType("Transferencia");
         transaction.setAccountNumber(account);
-        transaction.setAmount(payment.getAmount());
+        transaction.setAmount(amount);
         transaction.setTransactionDate(LocalDateTime.now());
         transactionRepository.save(transaction);
     }

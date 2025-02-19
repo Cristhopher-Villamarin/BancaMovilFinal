@@ -4,6 +4,7 @@ import com.Banca.Movil.demo.model.Transaction;
 import com.Banca.Movil.demo.repository.TransactionRepository;
 import com.Banca.Movil.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,13 @@ public class TransactionService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
         return transactionRepository.findByPaymentUserId(userId);
+    }
+
+    public List<Transaction> getTransactionsByAccountNumber(String accountNumber) {
+        // Verificar que el usuario exista
+        userRepository.findByNumeroCuenta(accountNumber)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        return transactionRepository.findByAccountNumber(accountNumber, Sort.by(Sort.Order.desc("transactionDate")));
     }
 
     public List<Transaction> getTransactionsByDate(Long userId, LocalDateTime start, LocalDateTime end) {

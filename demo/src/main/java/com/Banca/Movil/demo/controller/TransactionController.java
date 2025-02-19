@@ -20,9 +20,9 @@ public class TransactionController {
 
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    @GetMapping("/{userId}")
-    public ResponseEntity<List<Transaction>> getTransactionsByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(transactionService.getTransactionsByUser(userId));
+    @GetMapping("/{accountNumber}")
+    public ResponseEntity<List<Transaction>> getTransactionsByUser(@PathVariable String accountNumber) {
+        return ResponseEntity.ok(transactionService.getTransactionsByAccountNumber(accountNumber));
     }
 
     @GetMapping("/{userId}/date")

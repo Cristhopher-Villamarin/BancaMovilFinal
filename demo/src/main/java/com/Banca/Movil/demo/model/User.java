@@ -20,7 +20,7 @@ public class User {
     @Column(unique = true, length = 16)
     private String numeroCuenta;
 
-    @Column
+    @Transient
     private double saldo = 0.0;
 
 
