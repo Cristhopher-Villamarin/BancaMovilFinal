@@ -12,9 +12,17 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  bool _isProcessing = false;
 
   Future<void> _signInWithGoogle() async {
+    if (_isProcessing) return; // Si ya se está procesando, no hacemos nada
+
+    setState(() {
+      _isProcessing = true;
+    });
+
     try {
+      // Opcionalmente, cierra sesión antes de iniciar una nueva autenticación
       await GoogleSignIn().signOut();
       await _firebaseAuth.signOut();
 
@@ -38,9 +46,15 @@ class _LoginScreenState extends State<LoginScreen> {
         final user = userCredential.user;
 
         if (user != null) {
-          final UserI userI = new UserI(id: 0, email: user.email, name: user.displayName, numeroCuenta: "", saldo: 0);
-
-          final UserI? userILogin = await UserController.registerOrLoginUser(userI);
+          final UserI userI = UserI(
+            id: 0,
+            email: user.email,
+            name: user.displayName,
+            numeroCuenta: "",
+            saldo: 0,
+          );
+          final UserI? userILogin =
+          await UserController.registerOrLoginUser(userI);
 
           if (userILogin != null) {
             Navigator.pushReplacement(
@@ -62,8 +76,13 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al iniciar sesión: $e')),
       );
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

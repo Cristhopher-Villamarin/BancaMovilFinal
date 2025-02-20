@@ -22,4 +22,13 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al registrar usuario: " + e.getMessage());
         }
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshUserInfo(@RequestBody User user) {
+        try {
+            return ResponseEntity.ok(userService.refreshUserInfo(user));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error obteniendo información del usuario: " + e.getMessage());
+        }
+    }
 }

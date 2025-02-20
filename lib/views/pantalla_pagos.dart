@@ -59,7 +59,10 @@ class _PantallaPagosState extends State<PantallaPagos> {
         actions: [
           TextButton(
             child: Text("OK"),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => {
+              Navigator.pop(context),
+              Navigator.pop(context)
+            },
           ),
         ],
       ),

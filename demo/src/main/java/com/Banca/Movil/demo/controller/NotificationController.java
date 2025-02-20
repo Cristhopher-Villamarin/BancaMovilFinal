@@ -21,15 +21,20 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.getUserNotifications(userId));
     }
 
-    @GetMapping("/{userId}/unread")
-    public ResponseEntity<List<Notification>> getUnreadNotifications(@PathVariable Long userId) {
-        return ResponseEntity.ok(notificationService.getUnreadNotifications(userId));
-    }
-
     @PutMapping("/mark-as-read/{notificationId}")
     public ResponseEntity<Void> markNotificationAsRead(@PathVariable Long notificationId) {
         notificationService.markAsRead(notificationId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/countNotificationNoRead/{userId}")
+    public ResponseEntity<Long> countNotificationNoRead(@PathVariable Long userId) {
+        try {
+            return ResponseEntity.ok(notificationService.countNotificationNoRead(userId));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+
     }
 
     // Método adicional para marcar todas las notificaciones como leídas

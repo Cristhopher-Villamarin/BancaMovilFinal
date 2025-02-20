@@ -15,8 +15,29 @@ class UserController {
           headers: {"Content-Type": "application/json"},
           body: jsonEncode(userI.toJson()));
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      if(response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        userLogin = UserI.fromJson(jsonResponse);
+      } else {
+        return null;
+      }
+
+    } catch (e) {
+      print(e);
+      return null;
+    }
+
+    return userLogin;
+  }
+
+  static Future<UserI?> refreshUser(UserI userI) async {
+    var url = Uri.http(_apiUrl, "users/refresh");
+    UserI userLogin;
+    try {
+      var response = await http.post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode(userI.toJson()));
 
       if(response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);

@@ -3,6 +3,7 @@ package com.Banca.Movil.demo.service;
 import com.Banca.Movil.demo.model.Notification;
 import com.Banca.Movil.demo.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,11 +15,15 @@ public class NotificationService {
     private NotificationRepository notificationRepository;
 
     public List<Notification> getUserNotifications(Long userId) {
-        return notificationRepository.findByUserId(userId);
+        return notificationRepository.findByUserId(userId, Sort.by(Sort.Order.desc("id")));
     }
 
     public List<Notification> getUnreadNotifications(Long userId) {
         return notificationRepository.findByUserIdAndIsReadFalse(userId);
+    }
+
+    public long countNotificationNoRead(Long userId) {
+        return notificationRepository.countByUserIdAndIsReadFalse(userId);
     }
 
     public void markAsRead(Long notificationId) {

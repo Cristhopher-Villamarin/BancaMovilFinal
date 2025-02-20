@@ -1,8 +1,10 @@
 package com.Banca.Movil.demo.service;
 
 import com.Banca.Movil.demo.model.Card;
+import com.Banca.Movil.demo.model.Notification;
 import com.Banca.Movil.demo.model.User;
 import com.Banca.Movil.demo.repository.CardRepository;
+import com.Banca.Movil.demo.repository.NotificationRepository;
 import com.Banca.Movil.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,9 @@ public class CardService {
     @Autowired
     private UserRepository userRepository; // Añadido para validar el usuario
 
+    @Autowired
+    NotificationRepository notificationRepository;
+
     public List<Card> getCardsByUser(Long userId) {
         return cardRepository.findByUserId(userId);
     }
@@ -30,6 +35,10 @@ public class CardService {
         card.setUser(user);
         card.setId(null);
         card.setCardNumber(null);
+
+        Notification notification = new Notification(null, card.getUser(), "A solicitado una nueva tarjeta y a sido activada", false);
+        notificationRepository.save(notification);
+
         return cardRepository.save(card);
     }
 

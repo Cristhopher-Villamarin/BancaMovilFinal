@@ -1,13 +1,7 @@
 package com.Banca.Movil.demo.service;
 
-import com.Banca.Movil.demo.model.Card;
-import com.Banca.Movil.demo.model.Payment;
-import com.Banca.Movil.demo.model.Transaction;
-import com.Banca.Movil.demo.model.User;
-import com.Banca.Movil.demo.repository.CardRepository;
-import com.Banca.Movil.demo.repository.PaymentRepository;
-import com.Banca.Movil.demo.repository.TransactionRepository;
-import com.Banca.Movil.demo.repository.UserRepository;
+import com.Banca.Movil.demo.model.*;
+import com.Banca.Movil.demo.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -29,6 +23,9 @@ public class PaymentService {
 
     @Autowired
     private UserRepository userRepository; // Añadido para obtener el usuario
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Transactional
     public Payment processPayment(Payment payment) {
@@ -60,7 +57,15 @@ public class PaymentService {
         createTransaction(paymentSaved, originAccount.getNumeroCuenta(), -paymentSaved.getAmount());
         createTransaction(paymentSaved, destinationUser.getNumeroCuenta(), paymentSaved.getAmount());
 
+        createNotification(originAccount, "A realizado una trasferencia por un valor de " + paymentSaved.getAmount() + "$.");
+        createNotification(destinationUser, "A recivido una trasferencia por un valor de " + paymentSaved.getAmount() + "$.");
+
         return paymentSaved;
+    }
+
+    private void createNotification(User originAccount, String message) {
+        Notification notification = new Notification(null, originAccount, message , false);
+        notificationRepository.save(notification);
     }
 
     private void createTransaction(Payment payment, String account, double amount) {
