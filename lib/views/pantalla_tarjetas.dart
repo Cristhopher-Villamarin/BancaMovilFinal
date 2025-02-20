@@ -1,60 +1,75 @@
+import 'package:banca_movil_final/Model/UserI.dart';
 import 'package:flutter/material.dart';
+import 'package:banca_movil_final/Model/CardUser.dart'; // Importa el modelo Card
+import 'package:banca_movil_final/Controller/CardController.dart'; // Importa el controller
 
 class PantallaTarjetas extends StatefulWidget {
+  final UserI userI;
+
+  const PantallaTarjetas({required this.userI});
+
   @override
   _PantallaTarjetasState createState() => _PantallaTarjetasState();
 }
 
 class _PantallaTarjetasState extends State<PantallaTarjetas> {
-  List<Map<String, dynamic>> tarjetas = [
-    {"numero": "**** **** **** 1234", "congelada": false},
-    {"numero": "**** **** **** 5678", "congelada": false},
-  ];
+  List<CardUser> tarjetas = []; // Lista para almacenar las tarjetas
 
   final TextEditingController _tarjetaController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _cargarTarjetas(); // Cargar las tarjetas al iniciar la pantalla
+  }
+
+  // Método para cargar las tarjetas desde la API
+  void _cargarTarjetas() async {
+    List<CardUser>? cards = await CardController.getCardsByUser(widget.userI.id); // Usar el ID del usuario correspondiente
+    if (cards != null) {
+      setState(() {
+        tarjetas = cards;
+      });
+    }
+  }
+
+  // Método para mostrar un diálogo de confirmación antes de agregar la tarjeta
   void _mostrarDialogoAgregarTarjeta() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Agregar Tarjeta"),
-          content: TextField(
-            controller: _tarjetaController,
-            keyboardType: TextInputType.number,
-            maxLength: 16,
-            decoration: InputDecoration(
-              labelText: "Número de Tarjeta",
-              hintText: "1234567812345678",
-              counterText: "", // Oculta el contador de caracteres
-            ),
-          ),
+          title: Text("¿Está seguro que desea pedir una tarjeta?"),
+          content: Text("Al confirmar, su tarjeta será creada y generada automáticamente."),
           actions: [
             TextButton(
               child: Text("Cancelar"),
               onPressed: () {
-                _tarjetaController.clear();
                 Navigator.pop(context);
               },
             ),
             ElevatedButton(
-              child: Text("Agregar"),
-              onPressed: () {
-                String numeroTarjeta = _tarjetaController.text.trim();
-                if (numeroTarjeta.length == 16 && RegExp(r'^\d{16}$').hasMatch(numeroTarjeta)) {
+              child: Text("Aceptar"),
+              onPressed: () async {
+                var newCard = await CardController.addCard(CardUser(
+                  id: 0, // El id se generará automáticamente en el backend
+                  user: UserI(id: widget.userI.id, email: "", name: "", numeroCuenta: "", saldo: 0), // Usar el ID del usuario correspondiente
+                  cardNumber: "", // El número se genera automáticamente en el backend
+                  frozen: false,
+                ));
+                if (newCard != null) {
                   setState(() {
-                    tarjetas.add({
-                      "numero": "**** **** **** ${numeroTarjeta.substring(12)}",
-                      "congelada": false
-                    });
+                    tarjetas.add(newCard);
                   });
-                  _tarjetaController.clear();
-                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Tarjeta agregada correctamente, se enviara su tarjeta en 2 días laborables')),
+                  );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Ingrese un número de tarjeta válido (16 dígitos)")),
+                    SnackBar(content: Text('Error al agregar la tarjeta')),
                   );
                 }
+                Navigator.pop(context);
               },
             ),
           ],
@@ -63,24 +78,34 @@ class _PantallaTarjetasState extends State<PantallaTarjetas> {
     );
   }
 
-  void _eliminarTarjeta(int index) {
-    setState(() {
-      tarjetas.removeAt(index);
-    });
+  // Método para congelar o descongelar la tarjeta
+  void _congelarTarjeta(int index) async {
+    var card = tarjetas[index];
+    var updatedCard;
+    if (card.frozen) {
+      updatedCard = await CardController.unfreezeCard(card.id);
+    } else {
+      updatedCard = await CardController.freezeCard(card.id);
+    }
+
+    if (updatedCard != null) {
+      setState(() {
+        tarjetas[index] = updatedCard;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cambiar el estado de la tarjeta')),
+      );
+    }
   }
 
-  void _congelarTarjeta(int index) {
-    setState(() {
-      tarjetas[index]["congelada"] = !tarjetas[index]["congelada"];
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Mis Tarjetas"), backgroundColor: Colors.lightBlueAccent),
       body: Container(
-        color: Colors.white, // 📌 Fondo blanco asegurado
+        color: Colors.white,
         child: ListView.builder(
           itemCount: tarjetas.length,
           itemBuilder: (context, index) {
@@ -90,7 +115,7 @@ class _PantallaTarjetasState extends State<PantallaTarjetas> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogoAgregarTarjeta,
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.blue,
         child: Icon(Icons.add),
       ),
     );
@@ -99,13 +124,13 @@ class _PantallaTarjetasState extends State<PantallaTarjetas> {
   Widget _buildTarjetaVisual(int index) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10),
-      child: Center( // 📌 Centrar la tarjeta
+      child: Center(
         child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.6, // 📌 Ajusta el ancho aquí
+          width: MediaQuery.of(context).size.width * 0.6,
           child: Container(
             height: 200,
             decoration: BoxDecoration(
-              color: tarjetas[index]["congelada"] ? Colors.grey[400] : Colors.black,
+              color: tarjetas[index].frozen ? Colors.grey[300] : Colors.black87,
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(color: Colors.black26, blurRadius: 5, spreadRadius: 2),
@@ -116,19 +141,16 @@ class _PantallaTarjetasState extends State<PantallaTarjetas> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 📌 Logo de VISA en la parte superior derecha
                 Align(
                   alignment: Alignment.topRight,
                   child: Image.asset(
-                    'assests/Mastercard-logo.png', // Asegúrate de que el logo esté en la carpeta assets
+                    'assests/Mastercard-logo.png', // Ajusta la ruta del logo
                     height: 40,
                   ),
                 ),
-
-                // 📌 Número de tarjeta en el centro
                 Center(
                   child: Text(
-                    tarjetas[index]["numero"],
+                    "**** **** **** ${tarjetas[index].cardNumber.substring(15)}", // El número de la tarjeta se muestra aquí
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -137,16 +159,14 @@ class _PantallaTarjetasState extends State<PantallaTarjetas> {
                     ),
                   ),
                 ),
-
-                // 📌 Estado de la tarjeta y botones de acción
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      tarjetas[index]["congelada"] ? "Tarjeta Congelada" : "Activa",
+                      tarjetas[index].frozen ? "Tarjeta Congelada" : "Activa",
                       style: TextStyle(
                         fontSize: 16,
-                        color: tarjetas[index]["congelada"] ? Colors.red : Colors.greenAccent,
+                        color: tarjetas[index].frozen ? Colors.red : Colors.greenAccent,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -155,11 +175,7 @@ class _PantallaTarjetasState extends State<PantallaTarjetas> {
                         IconButton(
                           icon: Icon(Icons.ac_unit, color: Colors.white),
                           onPressed: () => _congelarTarjeta(index),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: Colors.white),
-                          onPressed: () => _eliminarTarjeta(index),
-                        ),
+                        )
                       ],
                     ),
                   ],

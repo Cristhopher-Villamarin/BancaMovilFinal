@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:banca_movil_final/Model/UserI.dart';
+import 'package:banca_movil_final/Model/Payment.dart';
+import 'package:banca_movil_final/Controller/PaymentController.dart';
 
 class PantallaPagos extends StatefulWidget {
+  final UserI userI;
+
+  const PantallaPagos({required this.userI});
+
   @override
   _PantallaPagosState createState() => _PantallaPagosState();
 }
@@ -9,33 +18,55 @@ class _PantallaPagosState extends State<PantallaPagos> {
   final _formKey = GlobalKey<FormState>();
   TextEditingController _montoController = TextEditingController();
   TextEditingController _tarjetaController = TextEditingController();
+  bool _isLoading = false;
 
-  void _confirmarPago() {
+  final NumberFormat currencyFormat = NumberFormat.simpleCurrency(decimalDigits: 2);
+
+  void _realizarPago() async {
     if (_formKey.currentState!.validate()) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text("Confirmar Pago"),
-          content: Text(
-              "¿Deseas realizar el pago de \$${_montoController.text} a la tarjeta ${_tarjetaController.text}?"),
-          actions: [
-            TextButton(
-              child: Text("Cancelar"),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              child: Text("Confirmar"),
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Pago realizado con éxito")),
-                );
-              },
-            ),
-          ],
-        ),
+      String montoTexto = _montoController.text.replaceAll(RegExp(r'[^0-9.]'), '');
+      double monto = double.parse(montoTexto);
+      String numeroCuenta = _tarjetaController.text;
+
+      Payment nuevoPago = Payment(
+        id: 0, // Se generará en el backend
+        user: widget.userI, // Suponiendo que el backend lo asigna
+        amount: monto,
+        numeroCuentaDestino: numeroCuenta,
+        paymentDate: DateTime.now(),
       );
+
+      setState(() => _isLoading = true);
+
+      Payment? respuesta = await PaymentController.processPayment(nuevoPago);
+
+      setState(() => _isLoading = false);
+
+      if (respuesta != null) {
+        _mostrarDialogo("Pago realizado con éxito.");
+      } else {
+        _mostrarDialogo("Error al procesar el pago.");
+      }
     }
+  }
+
+  void _mostrarDialogo(String mensaje) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Pago"),
+        content: Text(mensaje),
+        actions: [
+          TextButton(
+            child: Text("OK"),
+            onPressed: () => {
+              Navigator.pop(context),
+              Navigator.pop(context)
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -60,42 +91,80 @@ class _PantallaPagosState extends State<PantallaPagos> {
           children: [
             SizedBox(height: 20),
 
-            // 📌 Cuadro centrado con el formulario
+            // Cuadro centrado con el formulario
             Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
               child: Padding(
                 padding: EdgeInsets.all(20),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        "Ingresa los detalles del pago",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
-                      ),
-                      SizedBox(height: 20),
                       TextFormField(
                         controller: _montoController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                        ],
                         decoration: InputDecoration(
-                          labelText: "Monto a pagar (\$)",
+                          labelText: "Monto a pagar",
+                          prefixText: '\$ ',
                           border: OutlineInputBorder(),
                         ),
-                        validator: (value) => value!.isEmpty ? "Ingresa un monto válido" : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return "Ingrese un monto válido";
+                          }
+
+                          // Validar formato numérico
+                          String numericValue = value.replaceAll(RegExp(r'[^0-9.]'), '');
+                          if (double.tryParse(numericValue) == null) {
+                            return "Formato inválido";
+                          }
+
+                          double parsedValue = double.parse(numericValue);
+
+                          // Validar monto positivo
+                          if (parsedValue <= 0) {
+                            return "El monto debe ser mayor a 0";
+                          }
+
+                          // Validar decimales
+                          List<String> parts = numericValue.split('.');
+                          if (parts.length > 1 && parts[1].length > 2) {
+                            return "Máximo dos decimales";
+                          }
+
+                          // Validar saldo
+                          if (parsedValue > widget.userI.saldo!) {
+                            return "Saldo insuficiente";
+                          }
+
+                          return null;
+                        },
                       ),
                       SizedBox(height: 15),
                       TextFormField(
                         controller: _tarjetaController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(16),
+                        ],
                         decoration: InputDecoration(
-                          labelText: "Número de tarjeta",
+                          labelText: "Número de cuenta",
                           border: OutlineInputBorder(),
+                          counterText: '',
                         ),
-                        validator: (value) => value!.isEmpty ? "Ingresa un número de tarjeta" : null,
+                        maxLength: 16,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return "Ingrese número de cuenta";
+                          }
+                          if (value.length != 16) {
+                            return "Debe tener 16 dígitos";
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -103,11 +172,13 @@ class _PantallaPagosState extends State<PantallaPagos> {
               ),
             ),
 
-            // 📌 Botón en la parte inferior
+            // Botón en la parte inferior
             Padding(
               padding: const EdgeInsets.only(bottom: 30.0),
-              child: ElevatedButton(
-                onPressed: _confirmarPago,
+              child: _isLoading
+                  ? CircularProgressIndicator()
+                  : ElevatedButton(
+                onPressed: _realizarPago,
                 child: Text("Realizar Pago", style: TextStyle(color: Colors.white, fontSize: 18)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo,

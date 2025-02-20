@@ -1,215 +1,170 @@
+import 'package:banca_movil_final/Controller/TransactionController.dart';
+import 'package:banca_movil_final/Model/Transaction.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:banca_movil_final/Model/UserI.dart';
 
 class PantallaHistorial extends StatefulWidget {
+  final UserI userI;
+  const PantallaHistorial({required this.userI});
+
   @override
   _PantallaHistorialState createState() => _PantallaHistorialState();
 }
 
 class _PantallaHistorialState extends State<PantallaHistorial> {
-  List<Map<String, dynamic>> transacciones = [
-    {"fecha": "2024-02-10", "tipo": "Pago", "monto": 100.50},
-    {"fecha": "2024-02-11", "tipo": "Transferencia", "monto": 200.00},
-    {"fecha": "2024-02-12", "tipo": "Pago", "monto": 75.00},
-    {"fecha": "2024-02-13", "tipo": "Transferencia", "monto": 50.00},
-    {"fecha": "2024-02-14", "tipo": "Pago", "monto": 30.00},
-  ];
-
-  List<Map<String, dynamic>> transaccionesFiltradas = [];
+  List<Transaction> transacciones = [];
+  List<Transaction> transaccionesFiltradas = [];
   String? tipoSeleccionado;
   DateTime? fechaInicio;
   DateTime? fechaFin;
+  int limiteSeleccionado = 10;
+  List<String> tiposDisponibles = [];
 
   @override
   void initState() {
     super.initState();
-    transaccionesFiltradas = List.from(transacciones);
+    _cargarTransacciones();
+  }
+
+  Future<void> _cargarTransacciones() async {
+    try {
+      List<Transaction> data = await TransactionController.getTransactionsByAccount(widget.userI.numeroCuenta ?? "");
+      if (data.isNotEmpty) {
+        setState(() {
+          transacciones = data;
+          tiposDisponibles = data.map((e) => e.type).toSet().toList();
+          _filtrarTransacciones();
+        });
+      } else {
+        throw Exception("No se encontraron transacciones");
+      }
+    } catch (e) {
+      print("Error: $e");
+    }
   }
 
   void _filtrarTransacciones() {
     setState(() {
       transaccionesFiltradas = transacciones.where((transaccion) {
-        DateTime fecha = DateTime.parse(transaccion["fecha"]);
-
+        DateTime fecha = transaccion.transactionDate;
         bool cumpleFecha = true;
         if (fechaInicio != null && fechaFin != null) {
           cumpleFecha = fecha.isAfter(fechaInicio!.subtract(Duration(days: 1))) &&
               fecha.isBefore(fechaFin!.add(Duration(days: 1)));
         }
-
-        bool cumpleTipo = tipoSeleccionado == null || transaccion["tipo"] == tipoSeleccionado;
-
+        bool cumpleTipo = tipoSeleccionado == null || transaccion.type == tipoSeleccionado;
         return cumpleFecha && cumpleTipo;
-      }).toList();
+      }).take(limiteSeleccionado).toList();
     });
   }
 
-  Future<void> _seleccionarFechaInicio(BuildContext context) async {
-    final DateTime? seleccionada = await showDatePicker(
+  Future<void> _seleccionarFecha(BuildContext context, bool esInicio) async {
+    DateTime? fechaSeleccionada = await showDatePicker(
       context: context,
-      initialDate: fechaInicio ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
     );
-    if (seleccionada != null) {
+    if (fechaSeleccionada != null) {
       setState(() {
-        fechaInicio = seleccionada;
+        if (esInicio) {
+          fechaInicio = fechaSeleccionada;
+        } else {
+          fechaFin = fechaSeleccionada;
+        }
+        _filtrarTransacciones();
       });
-      _filtrarTransacciones();
     }
-  }
-
-  Future<void> _seleccionarFechaFin(BuildContext context) async {
-    final DateTime? seleccionada = await showDatePicker(
-      context: context,
-      initialDate: fechaFin ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (seleccionada != null) {
-      setState(() {
-        fechaFin = seleccionada;
-      });
-      _filtrarTransacciones();
-    }
-  }
-
-  void _descargarResumenPDF() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Función de descarga en construcción")),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Historial de Transacciones"),
-        backgroundColor: Colors.lightBlueAccent,
-      ),
-      body: Container(
-        color: Colors.white, // 📌 Fondo blanco asegurado
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // 📌 Selector de fecha
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        icon: Icon(Icons.date_range, color: Colors.indigo),
-                        label: Text(
-                          fechaInicio == null
-                              ? "Desde"
-                              : DateFormat("yyyy-MM-dd").format(fechaInicio!),
-                        ),
-                        onPressed: () => _seleccionarFechaInicio(context),
-                      ),
-                      TextButton.icon(
-                        icon: Icon(Icons.date_range, color: Colors.indigo),
-                        label: Text(
-                          fechaFin == null ? "Hasta" : DateFormat("yyyy-MM-dd").format(fechaFin!),
-                        ),
-                        onPressed: () => _seleccionarFechaFin(context),
-                      ),
-                    ],
-                  ),
-
-                  // 📌 Selector de tipo de transacción
-                  DropdownButton<String>(
-                    value: tipoSeleccionado,
-                    hint: Text("Seleccionar tipo"),
-                    isExpanded: true,
-                    items: ["Pago", "Transferencia"].map((String tipo) {
-                      return DropdownMenuItem<String>(
-                        value: tipo,
-                        child: Text(tipo),
-                      );
-                    }).toList(),
-                    onChanged: (nuevoTipo) {
-                      setState(() {
-                        tipoSeleccionado = nuevoTipo;
-                      });
-                      _filtrarTransacciones();
-                    },
-                  ),
-                  SizedBox(height: 10),
-
-                  // 📌 Botón para descargar PDF
-                  ElevatedButton.icon(
-                    onPressed: _descargarResumenPDF,
-                    icon: Icon(Icons.download, color: Colors.white),
-                    label: Text(
-                      "Descargar Resumen PDF",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // 📌 Lista de transacciones filtradas
-            Expanded(
-              child: transaccionesFiltradas.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      appBar: AppBar(title: Text("Historial de Transacciones"), backgroundColor: Colors.lightBlueAccent),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.list_alt, size: 50, color: Colors.grey),
-                    SizedBox(height: 10),
-                    Text("No hay transacciones en este periodo",
-                        style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    ElevatedButton(
+                      onPressed: () => _seleccionarFecha(context, true),
+                      child: Text(fechaInicio == null ? "Fecha inicio" : DateFormat('dd/MM/yyyy').format(fechaInicio!)),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _seleccionarFecha(context, false),
+                      child: Text(fechaFin == null ? "Fecha fin" : DateFormat('dd/MM/yyyy').format(fechaFin!)),
+                    ),
                   ],
                 ),
-              )
-                  : ListView.builder(
-                itemCount: transaccionesFiltradas.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12), // 📌 Bordes redondeados
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    DropdownButton<String>(
+                      hint: Text("Seleccionar tipo"),
+                      value: tipoSeleccionado,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          tipoSeleccionado = newValue;
+                          _filtrarTransacciones();
+                        });
+                      },
+                      items: tiposDisponibles.map((String tipo) {
+                        return DropdownMenuItem<String>(
+                          value: tipo,
+                          child: Text(tipo),
+                        );
+                      }).toList(),
                     ),
-                    elevation: 2,
-                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 5), // 📌 Ajuste de margen
-                    child: ListTile(
-                      leading: Icon(
-                        transaccionesFiltradas[index]["tipo"] == "Pago"
-                            ? Icons.payment
-                            : Icons.compare_arrows,
-                        color: transaccionesFiltradas[index]["tipo"] == "Pago"
-                            ? Colors.red
-                            : Colors.green,
-                      ),
-                      title: Text(
-                        "Monto: \$${transaccionesFiltradas[index]["monto"].toStringAsFixed(2)}",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text("Fecha: ${transaccionesFiltradas[index]["fecha"]}"),
-                      trailing: Text(
-                        transaccionesFiltradas[index]["tipo"],
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
+                    DropdownButton<int>(
+                      value: limiteSeleccionado,
+                      onChanged: (int? newValue) {
+                        setState(() {
+                          limiteSeleccionado = newValue ?? 10;
+                          _filtrarTransacciones();
+                        });
+                      },
+                      items: [5, 10, 20, 50].map((int limite) {
+                        return DropdownMenuItem<int>(
+                          value: limite,
+                          child: Text("Mostrar $limite"),
+                        );
+                      }).toList(),
                     ),
-                  );
-                },
-              ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: transaccionesFiltradas.isEmpty
+                ? Center(child: Text("No hay transacciones disponibles"))
+                : ListView.builder(
+              itemCount: transaccionesFiltradas.length,
+              itemBuilder: (context, index) {
+                var transaccion = transaccionesFiltradas[index];
+                return Card(
+                  elevation: 3,
+                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: ListTile(
+                    leading: Icon(
+                      transaccion.amount > 0 ? Icons.arrow_downward : Icons.arrow_upward,
+                      color: transaccion.amount > 0 ? Colors.green : Colors.red,
+                    ),
+                    title: Text("Monto: \$${transaccion.amount.toStringAsFixed(2)}"),
+                    subtitle: Text("Fecha: ${DateFormat('dd/MM/yyyy HH:mm').format(transaccion.transactionDate)}"),
+                    trailing: Text(transaccion.type, style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

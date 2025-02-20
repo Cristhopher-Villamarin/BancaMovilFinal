@@ -24,9 +24,4 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
-
-    @GetMapping("/{userId}")
-    public ResponseEntity<List<Payment>> getPaymentsByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(paymentService.getPaymentsByUser(userId));
-    }
 }

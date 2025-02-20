@@ -10,4 +10,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Método adicional para verificar si un email ya está registrado
     boolean existsByEmail(String email);
+
+    Optional<User> findByNumeroCuenta(String numeroCuenta);
 }
