@@ -24,4 +24,13 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+
+    @PostMapping("/deposit")
+    public ResponseEntity<?> processDeposit(@RequestBody Payment payment) {
+        try {
+            return ResponseEntity.ok(paymentService.doDeposit(payment));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
 }

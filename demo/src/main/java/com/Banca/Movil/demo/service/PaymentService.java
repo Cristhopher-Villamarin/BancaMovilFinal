@@ -54,11 +54,33 @@ public class PaymentService {
         Payment paymentSaved = paymentRepository.save(payment);
 
         // 4. Crear transacciones para la cuenta origen y cuenta destino
-        createTransaction(paymentSaved, originAccount.getNumeroCuenta(), -paymentSaved.getAmount());
-        createTransaction(paymentSaved, destinationUser.getNumeroCuenta(), paymentSaved.getAmount());
+        createTransaction(paymentSaved, originAccount.getNumeroCuenta(), -paymentSaved.getAmount(), "Transferencia");
+        createTransaction(paymentSaved, destinationUser.getNumeroCuenta(), paymentSaved.getAmount(), "Transferencia");
 
         createNotification(originAccount, "A realizado una trasferencia por un valor de " + paymentSaved.getAmount() + "$.");
         createNotification(destinationUser, "A recivido una trasferencia por un valor de " + paymentSaved.getAmount() + "$.");
+
+        return paymentSaved;
+    }
+
+    @Transactional
+    public Payment doDeposit(Payment payment) {
+        // 1. Verificar si la cuenta destino existe
+        User destinationUser = userRepository.findByNumeroCuenta(payment.getNumeroCuentaDestino())
+                .orElseThrow(() -> new RuntimeException("Cuenta destino no encontrada"));
+
+        User originAccount = userRepository.findById(payment.getUser().getId())
+                .orElseThrow(() -> new RuntimeException("Cuenta de origen no encontrada"));
+
+        // 2. Guardar el pago en la base de datos
+        payment.setPaymentDate(LocalDateTime.now());
+        payment.setId(null);
+        Payment paymentSaved = paymentRepository.save(payment);
+
+        // 4. Crear transacciones para la cuenta origen y cuenta destino
+        createTransaction(paymentSaved, destinationUser.getNumeroCuenta(), paymentSaved.getAmount(), "Deposito");
+
+        createNotification(destinationUser, "A realizado un deposito por un valor de " + paymentSaved.getAmount() + "$.");
 
         return paymentSaved;
     }
@@ -68,10 +90,10 @@ public class PaymentService {
         notificationRepository.save(notification);
     }
 
-    private void createTransaction(Payment payment, String account, double amount) {
+    private void createTransaction(Payment payment, String account, double amount, String type) {
         Transaction transaction = new Transaction();
         transaction.setPayment(payment);
-        transaction.setType("Transferencia");
+        transaction.setType(type);
         transaction.setAccountNumber(account);
         transaction.setAmount(amount);
         transaction.setTransactionDate(LocalDateTime.now());
